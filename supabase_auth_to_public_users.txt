@@ -1,0 +1,50 @@
+------------Create Sync Query ---------------------
+---------------------------------------------------
+create or replace function public.handle_new_user_kkk() 
+returns trigger as $$
+begin
+  insert into public.users (id, email, created_at, user_metadata, last_sign_in_at)
+  values (new.id, new.email, new.created_at, new.raw_user_meta_data, new.last_sign_in_at);
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_auth_user_created_kkk
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user_kkk();
+
+------------Update Sync Query ---------------------
+---------------------------------------------------
+create or replace function public.handle_update_user_kkk() 
+returns trigger 
+language plpgsql 
+security definer set search_path = public
+as $$
+begin
+  update public.users
+  set email = new.email,
+    created_at = new.created_at,
+    last_sign_in_at = new.last_sign_in_at,
+    user_metadata = new.raw_user_meta_data
+  where id = new.id;
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_updated_kkk
+  after update on auth.users
+  for each row execute procedure public.handle_update_user_kkk();
+
+------------Delete Sync Query ---------------------
+---------------------------------------------------
+create or replace function handle_deleted_auth_user()
+returns trigger as $$
+begin
+delete from public.users where id = old.id;
+return old;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_auth_user_deleted
+after delete on auth.users
+for each row execute procedure handle_deleted_auth_user();
